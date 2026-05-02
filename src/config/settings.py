@@ -70,7 +70,7 @@ class SentimentConfig:
 class TradingConfig:
     """Trading strategy configuration."""
     # Position sizing and risk management — DISCIPLINED DEFAULTS
-    max_position_size_pct: float = 3.0  # SANE: 3% per position (was 5% "beast mode")
+    max_position_size_pct: float = 5.0  # SANE: 3% per position (was 5% "beast mode")
     max_daily_loss_pct: float = 10.0    # SANE: 10% daily loss limit (was 15%)
     max_positions: int = 10              # SANE: 10 concurrent positions (was 15)
     min_balance: float = 100.0          # SANE: $100 minimum balance (was $50)

@@ -1,0 +1,19 @@
+2026-05-01 21:54:22,192 - trading_system.logging - INFO - [2m2026-05-01 21:54:22[0m [[32m[1minfo     [0m] [1mLogging system initialized    [0m [[34m[1mtrading_system.logging[0m] [36mconsole_enabled[0m=[35mTrue[0m [36mfile_enabled[0m=[35mTrue[0m [36mlatest_log[0m=[35mlogs/latest.log[0m [36mlog_file[0m=[35mlogs/trading_system_20260501_215422.log[0m [36mlog_level[0m=[35mINFO[0m
+2026-05-01 21:54:22,328 - trading_system.kalshiclient - INFO - [2m2026-05-01 21:54:22[0m [[32m[1minfo     [0m] [1mPrivate key loaded successfully[0m [[34m[1mtrading_system.kalshiclient[0m] 
+2026-05-01 21:54:22,339 - trading_system.kalshiclient - INFO - [2m2026-05-01 21:54:22[0m [[32m[1minfo     [0m] [1mKalshi client initialized     [0m [[34m[1mtrading_system.kalshiclient[0m] [36mapi_key_length[0m=[35m36[0m
+2026-05-01 21:54:22,339 - src.strategies.safe_compounder - INFO - ======================================================================
+2026-05-01 21:54:22,339 - src.strategies.safe_compounder - INFO - SAFE COMPOUNDER v5 — EDGE-BASED NO-SIDE
+2026-05-01 21:54:22,340 - src.strategies.safe_compounder - INFO - 2026-05-01 21:54:22
+2026-05-01 21:54:22,340 - src.strategies.safe_compounder - INFO - Rules: NO only | ask > $0.80 | edge > $0.03 | max 10%/position | maker orders
+2026-05-01 21:54:22,340 - src.strategies.safe_compounder - INFO - ======================================================================
+2026-05-01 21:54:51,490 - src.strategies.safe_compounder - INFO - Fetched 46904 unique markets (46904 from events)
+2026-05-01 21:54:51,625 - src.strategies.safe_compounder - INFO - Found 13990 NO-side candidates (YES last <= $0.20)
+2026-05-01 21:54:51,635 - src.strategies.safe_compounder - INFO - Capping to top 200 candidates (from 13990) for orderbook checks
+2026-05-01 21:55:04,249 - src.strategies.safe_compounder - INFO - Orderbook progress: 50/200 checked
+2026-05-01 21:55:16,399 - src.strategies.safe_compounder - INFO - Orderbook progress: 100/200 checked
+2026-05-01 21:55:28,961 - src.strategies.safe_compounder - INFO - Orderbook progress: 150/200 checked
+2026-05-01 21:55:41,368 - src.strategies.safe_compounder - INFO - Orderbook progress: 200/200 checked
+2026-05-01 21:55:41,369 - src.strategies.safe_compounder - INFO - 3 opportunities with edge > $0.03
+2026-05-01 21:55:42,573 - trading_system.kalshiclient - ERROR - [2m2026-05-01 21:55:42[0m [[31m[1merror    [0m] [1mAPI request failed without retry[0m [[34m[1mtrading_system.kalshiclient[0m] [36mendpoint[0m=[35m/trade-api/v2/portfolio/orders[0m [36merror[0m=[35mHTTP 400: {"error":{"code":"insufficient_balance","message":"insufficient balance","service":"exchange"}}[0m
+2026-05-01 21:55:43,124 - trading_system.kalshiclient - ERROR - [2m2026-05-01 21:55:43[0m [[31m[1merror    [0m] [1mAPI request failed without retry[0m [[34m[1mtrading_system.kalshiclient[0m] [36mendpoint[0m=[35m/trade-api/v2/portfolio/orders[0m [36merror[0m=[35mHTTP 400: {"error":{"code":"insufficient_balance","message":"insufficient balance","service":"exchange"}}[0m
+2026-05-01 21:55:43,685 - trading_system.kalshiclient - INFO - [2m2026-05-01 21:55:43[0m [[32m[1minfo     [0m] [1mKalshi client closed          [0m [[34m[1mtrading_system.kalshiclient[0m] 

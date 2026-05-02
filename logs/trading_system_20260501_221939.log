@@ -1,0 +1,17 @@
+2026-05-01 22:19:39,119 - trading_system.logging - INFO - [2m2026-05-01 22:19:39[0m [[32m[1minfo     [0m] [1mLogging system initialized    [0m [[34m[1mtrading_system.logging[0m] [36mconsole_enabled[0m=[35mTrue[0m [36mfile_enabled[0m=[35mTrue[0m [36mlatest_log[0m=[35mlogs/latest.log[0m [36mlog_file[0m=[35mlogs/trading_system_20260501_221939.log[0m [36mlog_level[0m=[35mINFO[0m
+2026-05-01 22:19:39,252 - trading_system.kalshiclient - INFO - [2m2026-05-01 22:19:39[0m [[32m[1minfo     [0m] [1mPrivate key loaded successfully[0m [[34m[1mtrading_system.kalshiclient[0m] 
+2026-05-01 22:19:39,265 - trading_system.kalshiclient - INFO - [2m2026-05-01 22:19:39[0m [[32m[1minfo     [0m] [1mKalshi client initialized     [0m [[34m[1mtrading_system.kalshiclient[0m] [36mapi_key_length[0m=[35m36[0m
+2026-05-01 22:19:39,265 - src.strategies.safe_compounder - INFO - ======================================================================
+2026-05-01 22:19:39,265 - src.strategies.safe_compounder - INFO - SAFE COMPOUNDER v5 — EDGE-BASED NO-SIDE
+2026-05-01 22:19:39,265 - src.strategies.safe_compounder - INFO - 2026-05-01 22:19:39
+2026-05-01 22:19:39,265 - src.strategies.safe_compounder - INFO - Rules: NO only | ask > $0.80 | edge > $0.03 | max 10%/position | maker orders
+2026-05-01 22:19:39,265 - src.strategies.safe_compounder - INFO - ======================================================================
+2026-05-01 22:20:06,642 - src.strategies.safe_compounder - INFO - Fetched 46355 unique markets (46355 from events)
+2026-05-01 22:20:06,774 - src.strategies.safe_compounder - INFO - Found 13779 NO-side candidates (YES last <= $0.20)
+2026-05-01 22:20:06,784 - src.strategies.safe_compounder - INFO - Capping to top 200 candidates (from 13779) for orderbook checks
+2026-05-01 22:20:19,540 - src.strategies.safe_compounder - INFO - Orderbook progress: 50/200 checked
+2026-05-01 22:20:33,725 - src.strategies.safe_compounder - INFO - Orderbook progress: 100/200 checked
+2026-05-01 22:20:45,742 - src.strategies.safe_compounder - INFO - Orderbook progress: 150/200 checked
+2026-05-01 22:20:57,756 - src.strategies.safe_compounder - INFO - Orderbook progress: 200/200 checked
+2026-05-01 22:20:57,756 - src.strategies.safe_compounder - INFO - 2 opportunities with edge > $0.03
+2026-05-01 22:21:38,000 - trading_system.kalshiclient - INFO - [2m2026-05-01 22:21:38[0m [[32m[1minfo     [0m] [1mKalshi client closed          [0m [[34m[1mtrading_system.kalshiclient[0m] 

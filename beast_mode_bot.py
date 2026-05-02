@@ -41,6 +41,7 @@ from src.config.settings import settings
 
 # Import Beast Mode components
 from src.strategies.unified_trading_system import run_unified_trading_system, TradingSystemConfig
+from src.strategies.parlay import run_parlay, PARLAY_EVERY
 from beast_mode_dashboard import BeastModeDashboard
 
 
@@ -222,7 +223,8 @@ class BeastModeBot:
     async def _run_trading_cycles(self, db_manager: DatabaseManager, kalshi_client: KalshiClient):
         """Main Beast Mode trading cycles."""
         cycle_count = 0
-        
+        total_bets_placed = 0
+
         while not self.shutdown_event.is_set():
             try:
                 # Check daily AI cost limits before starting cycle
@@ -230,13 +232,13 @@ class BeastModeBot:
                     # Sleep until next day if limits reached
                     await self._sleep_until_next_day()
                     continue
-                
+
                 cycle_count += 1
                 self.logger.info(f"🔄 Starting Beast Mode Trading Cycle #{cycle_count}")
-                
+
                 # Run the Beast Mode unified trading system
                 results = await run_trading_job()
-                
+
                 if results and results.total_positions > 0:
                     self.logger.info(
                         f"✅ Cycle #{cycle_count} Complete - "
@@ -244,12 +246,32 @@ class BeastModeBot:
                         f"Capital Used: ${results.total_capital_used:.0f} ({results.capital_efficiency:.1%}), "
                         f"Expected Return: {results.expected_annual_return:.1%}"
                     )
+
+                    # Track cumulative bets and fire a parlay every PARLAY_EVERY trades
+                    prev_total = total_bets_placed
+                    total_bets_placed += results.total_positions
+                    if total_bets_placed // PARLAY_EVERY > prev_total // PARLAY_EVERY:
+                        self.logger.info(
+                            f"🎰 PARLAY TRIGGER: {total_bets_placed} total bets placed — "
+                            f"starting 3-leg parlay"
+                        )
+                        try:
+                            parlay_result = await run_parlay(
+                                db_manager, kalshi_client, self.xai_client, self.live_mode
+                            )
+                            if parlay_result:
+                                self.logger.info(
+                                    f"🎰 Parlay complete: {parlay_result.legs_placed}/3 legs placed, "
+                                    f"${parlay_result.total_stake:.2f} total stake"
+                                )
+                        except Exception as e:
+                            self.logger.error(f"Parlay run failed (normal trading unaffected): {e}")
                 else:
                     self.logger.info(f"📊 Cycle #{cycle_count} Complete - No new positions created")
-                
+
                 # Wait for next cycle (60 seconds)
                 await asyncio.sleep(60)
-                
+
             except Exception as e:
                 self.logger.error(f"Error in trading cycle #{cycle_count}: {e}")
                 await asyncio.sleep(60)

@@ -257,6 +257,8 @@ class SafeCompounder:
         self.use_kelly = use_kelly
         self.min_confidence = min_confidence
         self.market_order_fraction = market_order_fraction
+        # Cached from the most recent run() call — used by run_parlay()
+        self._last_opportunities: List[Dict] = []
 
     async def run(self, dry_run: Optional[bool] = None) -> Dict:
         """
@@ -306,6 +308,8 @@ class SafeCompounder:
         sorted_opps = sorted(
             opportunities, key=lambda x: (-x["edge"], -x["annualized_roi"])
         )
+        # Cache for run_parlay() — valid until the next run() call
+        self._last_opportunities = sorted_opps
         print(f"\n📋 Top Opportunities:", flush=True)
         for opp in sorted_opps[:20]:
             print(
@@ -787,6 +791,131 @@ class SafeCompounder:
         except Exception as e:
             logger.error("Error cancelling YES orders: %s", e)
             return 0
+
+    async def run_parlay(self, legs: int = 3) -> Dict:
+        """
+        Place a parlay using the top `legs` opportunities from the last scan.
+
+        Each leg is sized at 1/legs of normal position size (total parlay
+        exposure ≈ one regular trade). Uses the same NO-side edge logic as
+        the normal strategy — no AI, pure math.
+
+        Should only be called after run() has populated _last_opportunities.
+        """
+        opps = self._last_opportunities
+        if len(opps) < legs:
+            print(
+                f"\n🎰 PARLAY: only {len(opps)} opportunities available "
+                f"(need {legs}). Skipping.",
+                flush=True,
+            )
+            return {"parlay_placed": 0, "parlay_stake": 0}
+
+        # Skip tickers already in portfolio or with resting orders
+        try:
+            positions_resp = await self.client.get_positions()
+            pos_tickers = {
+                p["ticker"]
+                for p in positions_resp.get("market_positions", [])
+                if abs(p.get("position", 0)) > 0
+            }
+        except Exception:
+            pos_tickers = set()
+
+        try:
+            orders_resp = await self.client.get_orders(status="resting")
+            ord_tickers = {o["ticker"] for o in orders_resp.get("orders", [])}
+        except Exception:
+            ord_tickers = set()
+
+        already_taken = pos_tickers | ord_tickers
+        fresh = [o for o in opps if o["ticker"] not in already_taken]
+
+        if len(fresh) < legs:
+            print(
+                f"\n🎰 PARLAY: only {len(fresh)} fresh opportunities after "
+                f"filtering existing positions (need {legs}). Skipping.",
+                flush=True,
+            )
+            return {"parlay_placed": 0, "parlay_stake": 0}
+
+        parlay_legs = fresh[:legs]
+        parlay_id = str(uuid.uuid4())[:8]
+
+        bal = await self.client.get_balance()
+        portfolio = bal.get("portfolio_value", 0)
+        cash = bal.get("balance", 0)
+
+        print(f"\n{'='*70}", flush=True)
+        print(
+            f"🎰 PARLAY {parlay_id}: {legs}-leg NO-side parlay "
+            f"(1/{legs} normal size per leg) | "
+            f"{'DRY RUN' if self.dry_run else 'LIVE'}",
+            flush=True,
+        )
+        print(f"{'='*70}", flush=True)
+
+        result: Dict = {"parlay_placed": 0, "parlay_stake": 0, "parlay_id": parlay_id, "legs": []}
+
+        for leg_num, opp in enumerate(parlay_legs, 1):
+            ticker = opp["ticker"]
+            contracts = self._calculate_position_size(opp, portfolio, cash)
+            contracts = max(1, contracts // legs)
+            price = opp["our_price"]
+            price_cents = int(price * 100)
+            cost_cents = contracts * price_cents
+            profit_cents = contracts * (100 - price_cents)
+
+            print(
+                f"  Leg {leg_num}/{legs}: NO x{contracts} @ ${price:.2f} | "
+                f"edge:${opp['edge']:.2f} roi:{opp['roi_pct']:.1f}% | {ticker}",
+                flush=True,
+            )
+            print(f"    {opp['title']}", flush=True)
+
+            if self.dry_run:
+                print(
+                    f"    [DRY] would place NO x{contracts} @ ${price:.2f} "
+                    f"(+${profit_cents/100:.2f} potential)",
+                    flush=True,
+                )
+                result["parlay_placed"] += 1
+                result["parlay_stake"] += cost_cents
+                result["legs"].append(ticker)
+                continue
+
+            try:
+                r = await self.client.place_order(
+                    ticker=ticker,
+                    client_order_id=str(uuid.uuid4()),
+                    side="no",
+                    action="buy",
+                    count=contracts,
+                    type_="limit",
+                    no_price=price_cents,
+                )
+                order = r.get("order", {})
+                filled = order.get("fill_count", 0)
+                if filled > 0:
+                    print(f"    🎯 Filled {filled} contracts immediately", flush=True)
+                else:
+                    print(f"    ✅ Resting limit order placed", flush=True)
+                result["parlay_placed"] += 1
+                result["parlay_stake"] += cost_cents
+                result["legs"].append(ticker)
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                print(f"    ❌ {ticker}: {e}", flush=True)
+
+        all_placed = result["parlay_placed"] == legs
+        status = "ALL LEGS PLACED" if all_placed else f"{result['parlay_placed']}/{legs} legs"
+        print(
+            f"\n🎰 Parlay {parlay_id}: {status} | "
+            f"Stake: ${result['parlay_stake']/100:.2f}",
+            flush=True,
+        )
+        print(f"{'='*70}\n", flush=True)
+        return result
 
     async def check_fills(self) -> None:
         """Check recent fills and resting orders."""

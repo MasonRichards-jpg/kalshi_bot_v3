@@ -47,10 +47,14 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     # --safe-compounder mode: edge-based NO-side only
     if safe_compounder:
+        parlay = getattr(args, "parlay", False)
+        if parlay and not getattr(args, "loop", False):
+            print("Note: --parlay only activates during --loop runs (counter needs multiple cycles).")
         _run_safe_compounder(
             live_mode=live_mode,
             loop=getattr(args, "loop", False),
             interval=getattr(args, "interval", 300),
+            parlay_mode=parlay,
         )
         return
 
@@ -98,14 +102,21 @@ def _run_safe_compounder(
     live_mode: bool = False,
     loop: bool = False,
     interval: int = 300,
+    parlay_mode: bool = False,
 ) -> None:
     """Run the Safe Compounder strategy.
 
     When ``loop`` is True, run the strategy repeatedly with ``interval``
     seconds between cycles until the user sends Ctrl-C.
+
+    When ``parlay_mode`` is True (requires ``loop``), a 3-leg NO-side parlay
+    fires every 10 cumulative orders placed — same edge logic, 1/3 normal size
+    per leg.
     """
     from src.clients.kalshi_client import KalshiClient
     from src.strategies.safe_compounder import SafeCompounder
+
+    PARLAY_EVERY = 10
 
     print("🔒 SAFE COMPOUNDER MODE")
     print("   NO-side only | Edge-based | Near-certain outcomes")
@@ -113,6 +124,8 @@ def _run_safe_compounder(
         print("   DRY RUN — no real orders will be placed")
     if loop:
         print(f"   Continuous mode — re-running every {interval}s. Ctrl-C to stop.")
+    if parlay_mode and loop:
+        print(f"   Parlay mode ON — 3-leg parlay fires every {PARLAY_EVERY} orders placed.")
 
     async def _run_once():
         client = KalshiClient()
@@ -126,17 +139,50 @@ def _run_safe_compounder(
             await client.close()
 
     async def _run_forever():
+        from src.clients.kalshi_client import KalshiClient
+        from src.strategies.safe_compounder import SafeCompounder
+
+        # Keep one client + compounder alive for the whole loop so
+        # run_parlay() can reuse _last_opportunities from the prior cycle.
+        client = KalshiClient()
+        compounder = SafeCompounder(client=client, dry_run=not live_mode)
+
         cycle = 0
-        while True:
-            cycle += 1
-            print(f"\n──── Cycle {cycle} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ────")
-            try:
-                await _run_once()
-            except Exception as exc:
-                # One bad cycle shouldn't kill the loop. Log and keep going.
-                print(f"Cycle {cycle} failed: {exc}. Continuing after {interval}s.")
-            print(f"\n⏳ Sleeping {interval}s before next cycle...")
-            await asyncio.sleep(interval)
+        total_placed = 0  # cumulative orders placed across all cycles
+
+        try:
+            while True:
+                cycle += 1
+                print(f"\n──── Cycle {cycle} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ────")
+                try:
+                    stats = await compounder.run()
+
+                    if parlay_mode and stats:
+                        orders_this_cycle = stats.get("placed", 0)
+                        prev_total = total_placed
+                        total_placed += orders_this_cycle
+
+                        # Fire a parlay whenever the counter crosses a new
+                        # multiple of PARLAY_EVERY (handles placing 2+ orders
+                        # in one cycle pushing past multiple thresholds too).
+                        if total_placed // PARLAY_EVERY > prev_total // PARLAY_EVERY:
+                            print(
+                                f"\n🎰 PARLAY TRIGGER: {total_placed} total orders placed "
+                                f"— firing 3-leg parlay"
+                            )
+                            try:
+                                await compounder.run_parlay()
+                            except Exception as exc:
+                                print(f"Parlay failed (normal trading unaffected): {exc}")
+
+                except Exception as exc:
+                    # One bad cycle shouldn't kill the loop.
+                    print(f"Cycle {cycle} failed: {exc}. Continuing after {interval}s.")
+
+                print(f"\n⏳ Sleeping {interval}s before next cycle...")
+                await asyncio.sleep(interval)
+        finally:
+            await client.close()
 
     try:
         if loop:
@@ -694,6 +740,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=300,
         help="Seconds between cycles when --loop is set (default: 300)",
+    )
+    p_run.add_argument(
+        "--parlay",
+        action="store_true",
+        help=(
+            "Enable parlay mode (requires --safe-compounder --loop): "
+            "every 10 cumulative orders placed, fire a 3-leg NO-side parlay "
+            "at 1/3 normal size per leg"
+        ),
     )
     p_run.add_argument(
         "--log-level",
